@@ -15,9 +15,10 @@ license: mit
 A multi-agent AI system that analyzes your server logs and generates a full incident report. Five specialist sub-agents (Security, Database, API, Application, Infrastructure) each analyze their domain **simultaneously**, and an orchestrator synthesizes the findings into a live web dashboard.
 
 Supports **Google Gemini**, **Anthropic Claude**, and **OpenAI GPT** — bring your own API key.
-
+https://youtu.be/GuV1YvFdGSM
 **Live demo:** https://huggingface.co/spaces/Rpyru/ai-log-monitor  
 **GitHub:** https://github.com/pyru/AI_Logs_Monitor
+
 
 ---
 

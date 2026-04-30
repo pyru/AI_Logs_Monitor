@@ -207,7 +207,7 @@ CSS = """
 footer { display: none !important; }
 """
 
-with gr.Blocks(title="AI Log Monitoring Dashboard") as demo:
+with gr.Blocks(title="AI Log Monitoring Dashboard", theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate"), css=CSS) as demo:
 
     gr.Markdown("""
 # AI Log Monitoring Dashboard
@@ -299,7 +299,6 @@ Supports **Google Gemini**, **Anthropic Claude**, and **OpenAI GPT** models.
                             "height:400px;color:#8b949e;font-family:system-ui;font-size:15px;'>"
                             "Run the analysis to load the dashboard.</div>"
                         ),
-                        sanitize_html=False,
                     )
 
     # ── Wire up events ─────────────────────────────────────────────────────────
@@ -319,7 +318,4 @@ Supports **Google Gemini**, **Anthropic Claude**, and **OpenAI GPT** models.
 # ── Launch ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     demo.queue()
-    demo.launch(
-        theme=gr.themes.Soft(primary_hue="violet", neutral_hue="slate"),
-        css=CSS,
-    )
+    demo.launch()

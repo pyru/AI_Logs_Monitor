@@ -1,13 +1,16 @@
 """
-Multi-provider AI Orchestrator Engine
+Multi-provider AI Orchestrator Engine — Parallel Edition
 Supports: Google Gemini | Anthropic Claude | OpenAI GPT
 
-Each provider uses the same 5-sub-agent + orchestrator pattern.
-Tool definitions are converted to each provider's native format at runtime.
+Architecture:
+  Phase 1 — ThreadPoolExecutor: 5 specialist sub-agents run simultaneously (~30s)
+  Phase 2 — Orchestrator LLM:   synthesizes all findings into one report (~15s)
+  Total: ~45s  (vs ~3 min sequential)
 """
 import json
 import re
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Callable
 
@@ -71,10 +74,9 @@ def _read_logs(log_files_dict: dict, names: list[str]) -> str:
         if match:
             parts.append(f"=== {match[0]} ===\n{match[1]}")
         else:
-            # Fall back to ALL available files for this sub-agent
             parts.append(f"=== {name} === [NOT FOUND — showing all available logs]\n" +
                          "\n\n".join(f"=== {fn} ===\n{c}" for fn, c in log_files_dict.items()))
-            break  # already gave everything
+            break
     return "\n\n".join(parts)
 
 
@@ -166,42 +168,42 @@ _INFRA_PROMPT = (
     "High escalation: 'SRE Team (Slack: #alerts-high)'. "
 ) + _SUB_SCHEMA
 
-# ── Orchestrator tool schema (provider-neutral JSON Schema) ────────────────────
+# ── Tool definitions ───────────────────────────────────────────────────────────
 ORCHESTRATOR_TOOLS = [
     {
         "name": "analyze_security_logs",
-        "description": "Security specialist sub-agent. Analyzes security logs for threats, attacks, credential issues, and data exfiltration. Returns structured findings JSON.",
+        "description": "Security specialist sub-agent.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "analyze_database_logs",
-        "description": "Database specialist sub-agent. Analyzes database logs for connection pool exhaustion, deadlocks, timeouts, and slow queries. Returns structured findings JSON.",
+        "description": "Database specialist sub-agent.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "analyze_api_logs",
-        "description": "API reliability specialist sub-agent. Analyzes API Gateway logs for HTTP errors, latency spikes, and circuit breaker events. Returns structured findings JSON.",
+        "description": "API reliability specialist sub-agent.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "analyze_application_logs",
-        "description": "Application specialist sub-agent. Analyzes application logs for OOM errors, payment failures, service crashes, and race conditions. Returns structured findings JSON.",
+        "description": "Application specialist sub-agent.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "analyze_infrastructure_logs",
-        "description": "Infrastructure specialist sub-agent. Analyzes server, Kubernetes, and CI/CD logs for resource pressure, pod crashes, and deployment failures. Returns structured findings JSON.",
+        "description": "Infrastructure specialist sub-agent.",
         "parameters": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "write_monitoring_report",
-        "description": "Write the final synthesized monitoring report. Call this LAST, after all 5 sub-agents have completed their analysis.",
+        "description": "Write the final synthesized monitoring report.",
         "parameters": {
             "type": "object",
             "properties": {
                 "report_json": {
                     "type": "string",
-                    "description": "Complete monitoring report as a valid JSON string matching the monitoring_output schema.",
+                    "description": "Complete monitoring report as a valid JSON string.",
                 }
             },
             "required": ["report_json"],
@@ -209,32 +211,24 @@ ORCHESTRATOR_TOOLS = [
     },
 ]
 
-# ── Orchestrator system prompt ─────────────────────────────────────────────────
-_ORCHESTRATOR_PROMPT = """
+# Only the synthesis tool — used in Phase 2
+_SYNTHESIS_TOOLS = [t for t in ORCHESTRATOR_TOOLS if t["name"] == "write_monitoring_report"]
+
+# ── Synthesis prompt (Phase 2 — orchestrator sees all 5 results, writes report) ─
+_SYNTHESIS_PROMPT = """
 You are the Master Orchestrator of a multi-agent AI log monitoring system.
+All 5 specialist sub-agents have already run in PARALLEL. Their findings are in the user message.
 
-Your 5 specialist sub-agents are your tools. Each sub-agent performs its own AI analysis of a specific log domain.
+Synthesize all findings into one coherent report:
+1. Correlate cross-domain events (e.g., DB pool exhaustion → API 502 errors → cascading failures).
+2. De-duplicate errors that appear in multiple domains.
+3. Sum all counts across domains.
+4. Set system_health:
+     "Down"     → any Critical errors exist
+     "Degraded" → any High errors exist (no Critical)
+     "Healthy"  → only Medium/Low or none
 
-Workflow — follow in order:
-1. Call ALL 5 sub-agents (order does not matter):
-   - analyze_security_logs()       → Security Agent
-   - analyze_database_logs()       → Database Agent
-   - analyze_api_logs()            → API Agent
-   - analyze_application_logs()    → Application Agent
-   - analyze_infrastructure_logs() → Infrastructure Agent
-
-2. Study all 5 findings carefully.
-
-3. Synthesize into a single coherent report:
-   - Correlate cross-domain events (e.g., DB pool exhaustion → API 502 errors)
-   - De-duplicate errors appearing in multiple domains
-   - Sum counts across all domains
-   - Set system_health:
-       "Down"     → any Critical errors exist
-       "Degraded" → any High errors exist (no Critical)
-       "Healthy"  → only Medium/Low or none
-
-4. Call write_monitoring_report(report_json) ONCE with JSON matching:
+Call write_monitoring_report(report_json) ONCE with JSON matching exactly:
 {
   "generated_at": "<ISO-8601 UTC>",
   "summary": {
@@ -269,12 +263,10 @@ Workflow — follow in order:
     "anomaly_spikes": ["<description>", ...]
   }
 }
-
-MANDATORY: Call all 5 sub-agents first. Then call write_monitoring_report() exactly once.
 """.strip()
 
 
-# ── Provider: sub-agent text generation (no tools) ─────────────────────────────
+# ── Sub-agent: single LLM call, no tool use ────────────────────────────────────
 def _call_sub_agent(provider: str, client, model: str, system_prompt: str, log_content: str) -> dict:
     """Run a specialist sub-agent — simple text generation, no tool use."""
     user_msg = f"Analyze these logs:\n\n{log_content}"
@@ -309,16 +301,52 @@ def _call_sub_agent(provider: str, client, model: str, system_prompt: str, log_c
     return {"error": f"Unknown provider: {provider}"}
 
 
-# ── Provider: Gemini orchestrator loop ─────────────────────────────────────────
-def _run_gemini_loop(client, model: str, tool_executor: Callable, on_progress: Callable) -> None:
-    from google.genai import types
-    try:
-        from google.genai import errors as _gerr
-    except ImportError:
-        _gerr = None
+# ── Phase 1: Run all 5 agents simultaneously ───────────────────────────────────
+def _run_agents_parallel(
+    provider_key: str, client, model: str, log_files_dict: dict, on_progress: Callable
+) -> dict:
+    """
+    Launch all 5 specialist sub-agents concurrently using ThreadPoolExecutor.
+    Returns {domain_key: result_dict} — available as soon as all threads finish.
+    on_progress is thread-safe (backed by queue.Queue in app.py).
+    """
+    configs = [
+        ("Security",       _SECURITY_PROMPT, ["security.log"]),
+        ("Database",       _DATABASE_PROMPT, ["db.log"]),
+        ("API",            _API_PROMPT,      ["api.log"]),
+        ("Application",    _APP_PROMPT,      ["app.log"]),
+        ("Infrastructure", _INFRA_PROMPT,    ["server.log", "k8s.log", "cicd.log"]),
+    ]
 
-    # Build Gemini tool declarations
-    def _to_gemini_schema(params: dict):
+    def _run_one(domain: str, prompt: str, log_names: list[str]):
+        content = _read_logs(log_files_dict, log_names)
+        on_progress(f"  [{domain} Agent] → analyzing ...")
+        result = _call_sub_agent(provider_key, client, model, prompt, content)
+        n = len(result.get("errors_found", []))
+        h = result.get("health", "?")
+        on_progress(f"  [{domain} Agent] ← {n} error(s) | health={h}")
+        return domain.lower(), result
+
+    sub_results: dict = {}
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        futures = {pool.submit(_run_one, d, p, l): d for d, p, l in configs}
+        for future in as_completed(futures):
+            try:
+                domain_key, result = future.result()
+                sub_results[domain_key] = result
+            except Exception as exc:
+                domain = futures[future]
+                on_progress(f"  [!] {domain} Agent error: {exc}")
+
+    return sub_results
+
+
+# ── Phase 2: Provider-specific synthesis (1 LLM call, write_monitoring_report tool) ──
+
+def _synthesize_gemini(client, model: str, sub_results: dict, on_progress: Callable) -> dict:
+    from google.genai import types
+
+    def _to_schema(params: dict):
         props = {}
         for k, v in params.get("properties", {}).items():
             t = v.get("type", "string").upper()
@@ -332,167 +360,128 @@ def _run_gemini_loop(client, model: str, tool_executor: Callable, on_progress: C
             required=params.get("required", []),
         )
 
-    declarations = [
-        types.FunctionDeclaration(
-            name=t["name"],
-            description=t["description"],
-            parameters=_to_gemini_schema(t["parameters"]),
-        )
-        for t in ORCHESTRATOR_TOOLS
-    ]
-
+    tool = _SYNTHESIS_TOOLS[0]
     config = types.GenerateContentConfig(
-        system_instruction=_ORCHESTRATOR_PROMPT,
-        tools=[types.Tool(function_declarations=declarations)],
+        system_instruction=_SYNTHESIS_PROMPT,
+        tools=[types.Tool(function_declarations=[
+            types.FunctionDeclaration(
+                name=tool["name"],
+                description=tool["description"],
+                parameters=_to_schema(tool["parameters"]),
+            )
+        ])],
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         temperature=0.0,
     )
 
-    contents = [types.Content(
-        role="user",
-        parts=[types.Part(text=f"Current UTC: {_now()}. Activate all 5 specialist sub-agents, then write the final report.")],
-    )]
+    user_msg = f"Sub-agent findings (all 5 ran in parallel):\n\n{json.dumps(sub_results, indent=2)}"
+    contents = [types.Content(role="user", parts=[types.Part(text=user_msg)])]
 
     fallbacks = [model] + [m for m in GEMINI_FALLBACKS if m != model]
-    active = model
-    agents_called: set = set()
+    response = None
+    for m in fallbacks:
+        try:
+            response = client.models.generate_content(model=m, contents=contents, config=config)
+            if m != model:
+                on_progress(f"  [synthesis] Switched to fallback: {m}")
+            break
+        except Exception as exc:
+            on_progress(f"  [!] {m} unavailable — trying next ...")
 
-    while True:
-        if len(agents_called) >= 5:
-            on_progress("  [Orchestrator] All agents done — synthesizing final report ...")
+    if response is None:
+        return {}
 
-        response = None
-        for m in fallbacks:
+    candidate = response.candidates[0]
+    if candidate.content is None:
+        return {}
+
+    for part in candidate.content.parts:
+        fc = getattr(part, "function_call", None)
+        if fc and fc.name == "write_monitoring_report":
             try:
-                response = client.models.generate_content(model=m, contents=contents, config=config)
-                if m != active:
-                    on_progress(f"  [fallback] Switched to: {m}")
-                    active = m
-                break
-            except Exception as exc:
-                if _gerr and isinstance(exc, _gerr.ServerError) and (
-                    getattr(exc, "status_code", 0) == 503 or "UNAVAILABLE" in str(exc)
-                ):
-                    on_progress(f"  [!] {m} unavailable (503) — trying next ...")
-                else:
-                    raise
-        if response is None:
-            raise RuntimeError("All Gemini models unavailable")
+                return json.loads(fc.args.get("report_json", "{}"))
+            except (json.JSONDecodeError, AttributeError):
+                return {}
 
-        candidate = response.candidates[0]
-        if candidate.content is None:
-            on_progress("  [Orchestrator] Warning: empty response — stopping loop")
-            break
-        contents.append(candidate.content)
-
-        fn_calls = [p.function_call for p in candidate.content.parts if getattr(p, "function_call", None)]
-        if not fn_calls:
-            break
-
-        result_parts = []
-        for fc in fn_calls:
-            if fc.name.startswith("analyze_"):
-                agents_called.add(fc.name)
-            result = tool_executor(fc.name, dict(fc.args) if fc.args else {}, on_progress)
-            result_parts.append(types.Part(
-                function_response=types.FunctionResponse(name=fc.name, response=result)
-            ))
-        contents.append(types.Content(role="user", parts=result_parts))
+    # Fallback: parse free text if tool call wasn't used
+    text = "".join(getattr(p, "text", "") for p in candidate.content.parts)
+    return _extract_json(text) if text.strip() else {}
 
 
-# ── Provider: Anthropic orchestrator loop ──────────────────────────────────────
-def _run_anthropic_loop(client, model: str, tool_executor: Callable, on_progress: Callable) -> None:
-    tools = [
-        {
-            "name": t["name"],
-            "description": t["description"],
-            "input_schema": {
-                **t["parameters"],
-                "additionalProperties": False,
-            },
-        }
-        for t in ORCHESTRATOR_TOOLS
-    ]
+def _synthesize_anthropic(client, model: str, sub_results: dict, on_progress: Callable) -> dict:
+    tool = _SYNTHESIS_TOOLS[0]
+    tools = [{
+        "name": tool["name"],
+        "description": tool["description"],
+        "input_schema": {**tool["parameters"], "additionalProperties": False},
+    }]
 
-    messages = [{"role": "user", "content": (
-        f"Current UTC: {_now()}. Activate all 5 specialist sub-agents to analyze the logs, "
-        "then write the final synthesized report."
-    )}]
-
-    while True:
+    user_msg = f"Sub-agent findings (all 5 ran in parallel):\n\n{json.dumps(sub_results, indent=2)}"
+    try:
         response = client.messages.create(
-            model=model,
-            max_tokens=8192,
-            system=_ORCHESTRATOR_PROMPT,
+            model=model, max_tokens=8192,
+            system=_SYNTHESIS_PROMPT,
             tools=tools,
-            messages=messages,
+            messages=[{"role": "user", "content": user_msg}],
         )
-        messages.append({"role": "assistant", "content": response.content})
+    except Exception as exc:
+        on_progress(f"  [!] Anthropic synthesis error: {exc}")
+        return {}
 
-        if response.stop_reason != "tool_use":
-            break
+    for block in response.content:
+        if getattr(block, "type", "") == "tool_use" and block.name == "write_monitoring_report":
+            try:
+                return json.loads((block.input or {}).get("report_json", "{}"))
+            except json.JSONDecodeError as exc:
+                on_progress(f"  [!] Anthropic report JSON parse error: {exc}")
+                return {}
 
-        tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = tool_executor(block.name, block.input or {}, on_progress)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": json.dumps(result),
-                })
-        messages.append({"role": "user", "content": tool_results})
+    # Fallback: text
+    for block in response.content:
+        if hasattr(block, "text"):
+            return _extract_json(block.text)
+    return {}
 
 
-# ── Provider: OpenAI orchestrator loop ────────────────────────────────────────
-def _run_openai_loop(client, model: str, tool_executor: Callable, on_progress: Callable) -> None:
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t["description"],
-                "parameters": t["parameters"],
-            },
-        }
-        for t in ORCHESTRATOR_TOOLS
-    ]
+def _synthesize_openai(client, model: str, sub_results: dict, on_progress: Callable) -> dict:
+    tool = _SYNTHESIS_TOOLS[0]
+    tools = [{"type": "function", "function": {
+        "name": tool["name"],
+        "description": tool["description"],
+        "parameters": tool["parameters"],
+    }}]
 
-    messages = [
-        {"role": "system", "content": _ORCHESTRATOR_PROMPT},
-        {"role": "user",   "content": (
-            f"Current UTC: {_now()}. Activate all 5 specialist sub-agents to analyze the logs, "
-            "then write the final synthesized report."
-        )},
-    ]
-
-    while True:
+    user_msg = f"Sub-agent findings (all 5 ran in parallel):\n\n{json.dumps(sub_results, indent=2)}"
+    try:
         response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
+            model=model, temperature=0,
+            tools=tools, tool_choice="auto",
+            messages=[
+                {"role": "system", "content": _SYNTHESIS_PROMPT},
+                {"role": "user",   "content": user_msg},
+            ],
         )
-        msg = response.choices[0].message
-        messages.append(msg)
+    except Exception as exc:
+        on_progress(f"  [!] OpenAI synthesis error: {exc}")
+        return {}
 
-        if not msg.tool_calls:
-            break
+    msg = response.choices[0].message
+    for tc in (msg.tool_calls or []):
+        if tc.function.name == "write_monitoring_report":
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+                return json.loads(args.get("report_json", "{}"))
+            except json.JSONDecodeError:
+                return {}
 
-        for tc in msg.tool_calls:
-            args = json.loads(tc.function.arguments or "{}")
-            result = tool_executor(tc.function.name, args, on_progress)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": json.dumps(result),
-            })
+    # Fallback: text
+    return _extract_json(msg.content) if msg.content else {}
 
 
-# ── Programmatic report builder (fallback when LLM synthesis fails) ────────────
+# ── Fallback: build report from sub-results if LLM synthesis fails ─────────────
 def _build_report(sub_results: dict, generated_at: str) -> dict:
-    all_errors = []
-    all_alerts = []
+    all_errors: list = []
+    all_alerts: list = []
     for result in sub_results.values():
         all_errors.extend(result.get("errors_found", []))
         all_alerts.extend(result.get("alerts", []))
@@ -504,8 +493,8 @@ def _build_report(sub_results: dict, generated_at: str) -> dict:
 
     health = "Down" if critical > 0 else ("Degraded" if high > 0 else "Healthy")
 
-    errors_1h  = sum(r.get("total_errors_last_hour", 0)  for r in sub_results.values())
-    errors_24h = sum(r.get("total_errors_last_24h",  0)  for r in sub_results.values())
+    errors_1h  = sum(r.get("total_errors_last_hour", 0) for r in sub_results.values())
+    errors_24h = sum(r.get("total_errors_last_24h",  0) for r in sub_results.values())
 
     service_counts: dict = {}
     for e in all_errors:
@@ -516,7 +505,7 @@ def _build_report(sub_results: dict, generated_at: str) -> dict:
     return {
         "generated_at": generated_at,
         "summary": {
-            "total_errors_last_hour":    errors_1h,
+            "total_errors_last_hour":     errors_1h,
             "total_errors_last_24_hours": errors_24h,
             "critical_count": critical,
             "high_count":     high,
@@ -544,19 +533,13 @@ def run_orchestrator_multi(
     on_progress: Callable,
 ) -> dict:
     """
-    Run the full multi-agent orchestrator.
+    Run the full parallel multi-agent orchestrator.
 
-    Args:
-        provider_key  : "gemini" | "anthropic" | "openai"
-        api_key       : User's API key for the chosen provider
-        model         : Model identifier string
-        log_files_dict: {filename: file_content_str} mapping
-        on_progress   : Callback(str) for streaming progress messages
-
-    Returns:
-        dict — the monitoring report (same schema as monitoring_output.json)
+    Phase 1: ThreadPoolExecutor runs all 5 sub-agents simultaneously.
+    Phase 2: Orchestrator LLM synthesizes findings into one report.
+    Phase 3: Programmatic fallback if LLM synthesis fails.
     """
-    # ── Init client ────────────────────────────────────────────────────────────
+    # ── Init provider client ───────────────────────────────────────────────────
     if provider_key == "gemini":
         from google import genai as _genai
         client = _genai.Client(api_key=api_key)
@@ -572,58 +555,35 @@ def run_orchestrator_multi(
     else:
         raise ValueError(f"Unknown provider: {provider_key!r}")
 
-    # ── Sub-agent runner ───────────────────────────────────────────────────────
-    def _run_sub_agent(domain: str, system_prompt: str, log_names: list[str]) -> dict:
-        content = _read_logs(log_files_dict, log_names)
-        on_progress(f"      {domain} Agent  → analyzing ...")
-        result = _call_sub_agent(provider_key, client, model, system_prompt, content)
-        n = len(result.get("errors_found", []))
-        h = result.get("health", "?")
-        on_progress(f"      {domain} Agent  ← {n} error(s) | health={h}")
-        return result
+    # ── Phase 1: Parallel sub-agents ──────────────────────────────────────────
+    on_progress("  [Phase 1] Launching all 5 agents in parallel ...")
+    sub_results = _run_agents_parallel(provider_key, client, model, log_files_dict, on_progress)
 
-    # ── Report + sub-agent result holders ─────────────────────────────────────
-    report_holder: dict = {}
-    sub_results: dict = {}
+    if not sub_results:
+        on_progress("  [!] No agent results returned. Check your API key and logs.")
+        return {}
 
-    # ── Tool executor (shared by all provider loops) ───────────────────────────
-    def tool_executor(name: str, args: dict, cb: Callable) -> dict:
-        if name == "analyze_security_logs":
-            r = _run_sub_agent("Security",       _SECURITY_PROMPT, ["security.log"])
-            sub_results["security"] = r; return r
-        if name == "analyze_database_logs":
-            r = _run_sub_agent("Database",       _DATABASE_PROMPT, ["db.log"])
-            sub_results["database"] = r; return r
-        if name == "analyze_api_logs":
-            r = _run_sub_agent("API",            _API_PROMPT,      ["api.log"])
-            sub_results["api"] = r; return r
-        if name == "analyze_application_logs":
-            r = _run_sub_agent("Application",    _APP_PROMPT,      ["app.log"])
-            sub_results["application"] = r; return r
-        if name == "analyze_infrastructure_logs":
-            r = _run_sub_agent("Infrastructure", _INFRA_PROMPT,    ["server.log", "k8s.log", "cicd.log"])
-            sub_results["infrastructure"] = r; return r
-        if name == "write_monitoring_report":
-            try:
-                report = json.loads(args.get("report_json", "{}"))
-            except json.JSONDecodeError as exc:
-                return {"error": f"Invalid JSON: {exc}"}
-            report_holder["report"] = report
-            on_progress("  [Orchestrator] ✓ Report written")
-            return {"status": "ok"}
-        return {"error": f"Unknown tool: {name}"}
+    completed = len(sub_results)
+    on_progress(f"  [Phase 1] Done — {completed}/5 agents completed")
 
-    # ── Dispatch to provider-specific loop ─────────────────────────────────────
-    if provider_key == "gemini":
-        _run_gemini_loop(client, model, tool_executor, on_progress)
-    elif provider_key == "anthropic":
-        _run_anthropic_loop(client, model, tool_executor, on_progress)
-    elif provider_key == "openai":
-        _run_openai_loop(client, model, tool_executor, on_progress)
+    # ── Phase 2: Synthesis ────────────────────────────────────────────────────
+    on_progress("  [Phase 2] Orchestrator synthesizing final report ...")
 
-    # ── Fallback: build report programmatically if LLM synthesis failed ────────
-    if not report_holder.get("report") and sub_results:
-        on_progress("  [Orchestrator] LLM synthesis incomplete — building report from agent results ...")
-        report_holder["report"] = _build_report(sub_results, _now())
+    report: dict = {}
+    try:
+        if provider_key == "gemini":
+            report = _synthesize_gemini(client, model, sub_results, on_progress)
+        elif provider_key == "anthropic":
+            report = _synthesize_anthropic(client, model, sub_results, on_progress)
+        elif provider_key == "openai":
+            report = _synthesize_openai(client, model, sub_results, on_progress)
+    except Exception as exc:
+        on_progress(f"  [!] Synthesis error: {exc}")
 
-    return report_holder.get("report", {})
+    if report and not report.get("parse_error"):
+        on_progress("  [Phase 2] ✓ Report synthesized")
+        return report
+
+    # ── Phase 3: Programmatic fallback ────────────────────────────────────────
+    on_progress("  [Phase 3] LLM synthesis incomplete — assembling report from agent results ...")
+    return _build_report(sub_results, _now())

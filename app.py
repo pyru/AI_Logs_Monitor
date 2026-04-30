@@ -129,7 +129,7 @@ def run_analysis(provider_name, api_key, model_name, log_files, use_sample):
     lines = [
         f"[{_now()}] Starting {provider_name} orchestrator",
         f"  Model      : {model}",
-        f"  Sub-agents : Security | Database | API | Application | Infrastructure",
+        f"  Mode       : Parallel — 5 agents run simultaneously",
         f"  Log files  : {file_list}",
         "",
     ]

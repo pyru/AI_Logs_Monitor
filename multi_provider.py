@@ -282,7 +282,7 @@ def _call_sub_agent(provider: str, client, model: str, system_prompt: str, log_c
 
     elif provider == "anthropic":
         resp = client.messages.create(
-            model=model, max_tokens=4096,
+            model=model, max_tokens=8192,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],
         )

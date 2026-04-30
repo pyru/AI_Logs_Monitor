@@ -1,15 +1,3 @@
----
-title: AI Log Monitoring Dashboard
-emoji: 🔍
-colorFrom: purple
-colorTo: blue
-sdk: gradio
-sdk_version: 5.29.0
-app_file: app.py
-pinned: false
-license: mit
----
-
 # AI Log Monitoring Dashboard
 
 A multi-agent AI system that analyzes your server logs and generates a full incident report. Five specialist sub-agents (Security, Database, API, Application, Infrastructure) each analyze their domain, and an orchestrator synthesizes the findings into a live web dashboard.

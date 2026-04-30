@@ -1,6 +1,18 @@
+---
+title: AI Log Monitoring Dashboard
+emoji: 🔍
+colorFrom: purple
+colorTo: blue
+sdk: gradio
+sdk_version: 5.29.0
+app_file: app.py
+pinned: false
+license: mit
+---
+
 # AI Log Monitoring Dashboard
 
-A multi-agent AI system that analyzes your server logs and generates a full incident report. Five specialist sub-agents (Security, Database, API, Application, Infrastructure) each analyze their domain, and an orchestrator synthesizes the findings into a live web dashboard.
+A multi-agent AI system that analyzes your server logs and generates a full incident report. Five specialist sub-agents (Security, Database, API, Application, Infrastructure) each analyze their domain **simultaneously**, and an orchestrator synthesizes the findings into a live web dashboard.
 
 Supports **Google Gemini**, **Anthropic Claude**, and **OpenAI GPT** — bring your own API key.
 
@@ -15,18 +27,21 @@ Supports **Google Gemini**, **Anthropic Claude**, and **OpenAI GPT** — bring y
 Your Logs
     │
     ▼
-Orchestrator LLM
-    ├──▶ Security Agent     → analyzes security.log
-    ├──▶ Database Agent     → analyzes db.log
-    ├──▶ API Agent          → analyzes api.log
-    ├──▶ Application Agent  → analyzes app.log
+Phase 1 — ThreadPoolExecutor (all 5 run simultaneously, ~30s)
+    ├──▶ Security Agent      → analyzes security.log
+    ├──▶ Database Agent      → analyzes db.log
+    ├──▶ API Agent           → analyzes api.log
+    ├──▶ Application Agent   → analyzes app.log
     └──▶ Infrastructure Agent → analyzes server.log, k8s.log, cicd.log
+    │
+    ▼
+Phase 2 — Orchestrator LLM synthesizes all 5 findings (~15s)
     │
     ▼
 Synthesized Report → Live Dashboard
 ```
 
-**6 LLM calls per run** (1 orchestrator + 5 sub-agents). Takes 1–3 minutes.
+**6 LLM calls per run** — 5 parallel sub-agents + 1 synthesis. Takes ~45s (vs ~3 min sequential).
 
 ---
 
@@ -186,7 +201,7 @@ git push space master:main      # update HF Spaces
 | Rule-based | `monitor.py` | None | < 1s |
 | Single agent (CLI) | `ai_agent.py` | Gemini | 30–60s |
 | Orchestrator (CLI) | `orchestrator_agent.py` | Gemini | 1–3 min |
-| **Web app (recommended)** | **`app.py`** | **Any** | **1–3 min** |
+| **Web app (recommended)** | **`app.py`** | **Any** | **~45s (parallel)** |
 
 ---
 

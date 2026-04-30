@@ -1,0 +1,30 @@
+2026-04-29T00:00:00Z INFO  [CICDPipeline] Pipeline runner started. Queue: 0 jobs
+2026-04-29T06:30:00Z INFO  [CICDPipeline] Pipeline #1842 started: branch=main service=OrderService
+2026-04-29T06:30:10Z INFO  [CICDPipeline] Stage: lint - PASSED (12s)
+2026-04-29T06:30:30Z INFO  [CICDPipeline] Stage: unit-tests - PASSED (45s)
+2026-04-29T06:31:20Z INFO  [CICDPipeline] Stage: integration-tests - PASSED (120s)
+2026-04-29T06:33:25Z INFO  [CICDPipeline] Stage: build-docker - PASSED (80s)
+2026-04-29T06:34:50Z INFO  [CICDPipeline] Stage: deploy-staging - PASSED (45s)
+2026-04-29T06:35:40Z INFO  [CICDPipeline] Stage: smoke-tests - PASSED (22s)
+2026-04-29T06:36:10Z INFO  [CICDPipeline] Pipeline #1842 COMPLETED successfully. Duration: 5m40s
+2026-04-29T07:00:00Z INFO  [CICDPipeline] Pipeline #1843 started: branch=feature/search-v2 service=SearchService
+2026-04-29T07:00:10Z INFO  [CICDPipeline] Stage: lint - PASSED (10s)
+2026-04-29T07:00:30Z ERROR [CICDPipeline] Stage: unit-tests - FAILED (33s): 7 tests failed
+2026-04-29T07:00:30Z ERROR [CICDPipeline] Test failures: SearchIndexTest::testRelevanceScoring, SearchIndexTest::testFacetFiltering, ElasticsearchClientTest::testBulkInsert (and 4 more)
+2026-04-29T07:00:31Z ERROR [CICDPipeline] Pipeline #1843 FAILED at unit-tests stage. PR #447 blocked.
+2026-04-29T08:00:00Z INFO  [CICDPipeline] Pipeline #1844 started: branch=hotfix/db-pool service=OrderService
+2026-04-29T08:00:10Z INFO  [CICDPipeline] Stage: lint - PASSED (11s)
+2026-04-29T08:00:30Z INFO  [CICDPipeline] Stage: unit-tests - PASSED (43s)
+2026-04-29T08:01:20Z INFO  [CICDPipeline] Stage: integration-tests - PASSED (118s)
+2026-04-29T08:03:25Z INFO  [CICDPipeline] Stage: build-docker - PASSED (78s)
+2026-04-29T08:04:50Z INFO  [CICDPipeline] Stage: deploy-prod - STARTED
+2026-04-29T08:05:10Z ERROR [CICDPipeline] Stage: deploy-prod - FAILED: credentials expired (deploy-bot token invalid)
+2026-04-29T08:05:11Z ERROR [CICDPipeline] Pipeline #1844 FAILED at deploy-prod stage. Hotfix blocked!
+2026-04-29T09:00:00Z INFO  [CICDPipeline] Pipeline #1845 started: branch=hotfix/db-pool service=OrderService (retry)
+2026-04-29T09:00:10Z INFO  [CICDPipeline] Stage: lint - PASSED (10s)
+2026-04-29T09:00:30Z INFO  [CICDPipeline] Stage: unit-tests - PASSED (44s)
+2026-04-29T09:01:20Z INFO  [CICDPipeline] Stage: integration-tests - PASSED (120s)
+2026-04-29T09:03:25Z INFO  [CICDPipeline] Stage: build-docker - PASSED (79s)
+2026-04-29T09:04:50Z ERROR [CICDPipeline] Stage: deploy-prod - FAILED: credentials expired (deploy-bot token invalid)
+2026-04-29T09:04:51Z ERROR [CICDPipeline] Pipeline #1845 FAILED. Critical hotfix cannot be deployed!
+2026-04-29T10:20:30Z ERROR [CICDPipeline] Service account deploy-bot credentials expired. All deployments blocked.

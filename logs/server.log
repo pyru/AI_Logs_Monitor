@@ -1,0 +1,25 @@
+2026-04-29T00:00:00Z INFO  [ServerMonitor] Node: prod-web-01 | CPU: 12% | MEM: 42% | DISK: 55%
+2026-04-29T00:00:00Z INFO  [ServerMonitor] Node: prod-web-02 | CPU: 15% | MEM: 44% | DISK: 55%
+2026-04-29T00:00:00Z INFO  [ServerMonitor] Node: prod-api-01 | CPU: 18% | MEM: 50% | DISK: 60%
+2026-04-29T00:00:00Z INFO  [ServerMonitor] Node: prod-db-01  | CPU: 22% | MEM: 65% | DISK: 70%
+2026-04-29T01:15:00Z WARN  [ServerMonitor] Node: prod-db-01  | CPU: 78% | MEM: 88% | DISK: 70% - ELEVATED
+2026-04-29T01:16:00Z ERROR [ServerMonitor] Node: prod-db-01  | CPU: 95% | MEM: 94% | DISK: 70% - CRITICAL
+2026-04-29T01:16:30Z ERROR [ServerMonitor] Node: prod-api-01 | CPU: 89% | MEM: 82% | DISK: 60% - HIGH
+2026-04-29T01:17:00Z CRITICAL [ServerMonitor] Node: prod-db-01 CPU spike: 99% for 120s - auto-scaling triggered
+2026-04-29T01:45:00Z INFO  [ServerMonitor] Auto-scaling: prod-db-02 added to cluster
+2026-04-29T02:00:00Z INFO  [ServerMonitor] Node: prod-db-01  | CPU: 28% | MEM: 68% | DISK: 70% - NORMAL
+2026-04-29T04:22:00Z WARN  [ServerMonitor] Node: prod-api-01 | CPU: 72% | MEM: 76% | DISK: 60% - ELEVATED
+2026-04-29T05:00:00Z INFO  [ServerMonitor] Node: prod-api-01 | CPU: 35% | MEM: 58% | DISK: 60% - NORMAL
+2026-04-29T07:00:00Z WARN  [ServerMonitor] Node: prod-web-01 | CPU: 68% | MEM: 71% | DISK: 55% - ELEVATED
+2026-04-29T07:00:00Z WARN  [ServerMonitor] Node: prod-web-02 | CPU: 72% | MEM: 75% | DISK: 55% - ELEVATED
+2026-04-29T08:28:00Z CRITICAL [ServerMonitor] Node: prod-app-01 | MEM: 98% - OutOfMemory risk (ReportingService)
+2026-04-29T08:30:00Z CRITICAL [ServerMonitor] Node: prod-app-01 | MEM: 100% - OOM Kill triggered
+2026-04-29T08:32:00Z INFO  [ServerMonitor] Node: prod-app-01 | MEM: 52% - process restarted
+2026-04-29T09:00:00Z INFO  [ServerMonitor] All nodes: CPU<50% MEM<70% - HEALTHY
+2026-04-29T09:15:00Z WARN  [ServerMonitor] Node: prod-db-01  | CPU: 82% | MEM: 91% | DISK: 71% - CRITICAL
+2026-04-29T09:16:00Z ERROR [ServerMonitor] Node: prod-db-01  | CPU: 96% | MEM: 93% | DISK: 71% - CRITICAL
+2026-04-29T10:00:00Z INFO  [ServerMonitor] Node: prod-db-01  | CPU: 31% | MEM: 69% | DISK: 71% - NORMAL
+2026-04-29T10:44:00Z WARN  [ServerMonitor] Node: prod-db-01  | CPU: 75% | MEM: 87% | DISK: 71% - ELEVATED
+2026-04-29T10:45:00Z ERROR [ServerMonitor] Node: prod-db-01  | CPU: 92% | MEM: 95% | DISK: 72% - CRITICAL
+2026-04-29T10:46:00Z CRITICAL [ServerMonitor] Node: prod-db-01 CPU spike: 98% for 90s - auto-scaling triggered
+2026-04-29T10:47:00Z WARN  [ServerMonitor] Disk usage on prod-db-01: 72% - approaching threshold (80%)

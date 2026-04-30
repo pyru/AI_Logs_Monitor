@@ -1,0 +1,32 @@
+2026-04-29T00:00:00Z INFO  [SecurityService] Audit logging enabled. Compliance mode: SOC2
+2026-04-29T00:45:12Z WARN  [SecurityService] Failed login attempt: user=admin@aurum.com IP=45.33.32.156 (attempt 1/5)
+2026-04-29T00:45:45Z WARN  [SecurityService] Failed login attempt: user=admin@aurum.com IP=45.33.32.156 (attempt 2/5)
+2026-04-29T00:46:10Z WARN  [SecurityService] Failed login attempt: user=admin@aurum.com IP=45.33.32.156 (attempt 3/5)
+2026-04-29T00:46:35Z WARN  [SecurityService] Failed login attempt: user=admin@aurum.com IP=45.33.32.156 (attempt 4/5)
+2026-04-29T00:47:00Z ERROR [SecurityService] ACCOUNT LOCKED: admin@aurum.com - brute force threshold exceeded (5 attempts) from IP=45.33.32.156
+2026-04-29T00:47:05Z ERROR [SecurityService] Suspicious IP flagged: 45.33.32.156 - known Shodan crawler
+2026-04-29T01:10:00Z WARN  [SecurityService] Failed login attempt: user=root IP=185.220.101.42 (attempt 1/5)
+2026-04-29T01:10:20Z WARN  [SecurityService] Failed login attempt: user=root IP=185.220.101.42 (attempt 2/5)
+2026-04-29T01:10:40Z WARN  [SecurityService] Failed login attempt: user=root IP=185.220.101.42 (attempt 3/5)
+2026-04-29T01:11:00Z WARN  [SecurityService] Failed login attempt: user=root IP=185.220.101.42 (attempt 4/5)
+2026-04-29T01:11:20Z ERROR [SecurityService] ACCOUNT LOCKED: root - brute force threshold exceeded from IP=185.220.101.42
+2026-04-29T01:11:25Z CRITICAL [SecurityService] SECURITY ALERT: Multiple brute force attacks detected from TOR exit node 185.220.101.42
+2026-04-29T01:11:30Z CRITICAL [SecurityService] IP BLOCKED: 185.220.101.42 added to firewall deny list
+2026-04-29T02:30:00Z INFO  [SecurityService] SSL certificate audit: all certs valid. Soonest expiry: 87 days (api.aurum.com)
+2026-04-29T03:15:44Z WARN  [SecurityService] Unusual API access pattern: service-account-lambda accessed 4200 records in 30s (threshold: 1000)
+2026-04-29T03:16:00Z ERROR [SecurityService] Data exfiltration risk: service-account-lambda bulk export triggered - 4200 customer records
+2026-04-29T03:16:05Z CRITICAL [SecurityService] SECURITY INCIDENT: Unauthorized bulk data access by service-account-lambda. Alerting security team.
+2026-04-29T03:20:00Z INFO  [SecurityService] Investigation started: Ticket SEC-2847 created
+2026-04-29T03:45:00Z INFO  [SecurityService] Root cause: automated report job misconfigured. No breach confirmed.
+2026-04-29T06:00:00Z INFO  [SecurityService] Routine WAF scan complete. No threats detected.
+2026-04-29T07:22:33Z WARN  [SecurityService] JWT token expired but still used: user_id=USR-8811 endpoint=/api/v1/admin/users
+2026-04-29T08:00:00Z INFO  [SecurityService] Daily vulnerability scan complete. 0 critical, 2 medium CVEs flagged.
+2026-04-29T08:05:00Z WARN  [SecurityService] CVE-2024-45337 detected in ssh2 v1.14.0 (medium severity)
+2026-04-29T09:30:00Z WARN  [SecurityService] Failed login attempt: user=admin IP=212.47.234.14 (attempt 1/5)
+2026-04-29T09:30:15Z WARN  [SecurityService] Failed login attempt: user=admin IP=212.47.234.14 (attempt 2/5)
+2026-04-29T09:30:30Z WARN  [SecurityService] Failed login attempt: user=admin IP=212.47.234.14 (attempt 3/5)
+2026-04-29T09:30:45Z ERROR [SecurityService] ACCOUNT LOCKED: admin - brute force from IP=212.47.234.14
+2026-04-29T10:00:00Z INFO  [SecurityService] Firewall rules updated. Block list: 3 IPs active.
+2026-04-29T10:20:00Z WARN  [SecurityService] Failed login attempt: user=deploy-bot IP=10.0.1.45 (attempt 1/3) - internal network
+2026-04-29T10:20:15Z WARN  [SecurityService] Failed login attempt: user=deploy-bot IP=10.0.1.45 (attempt 2/3) - internal network
+2026-04-29T10:20:30Z ERROR [SecurityService] Service account credentials expired: deploy-bot. CI/CD pipeline may be affected.

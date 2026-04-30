@@ -1,0 +1,22 @@
+2026-04-29T00:00:00Z INFO  [K8sController] Cluster: prod-cluster-01 | Nodes: 8 Ready | Pods: 142 Running
+2026-04-29T01:15:00Z WARN  [K8sController] Pod orders-service-7d8f9c-xkp2z CrashLoopBackOff (restarts: 3)
+2026-04-29T01:15:30Z ERROR [K8sController] Pod orders-service-7d8f9c-xkp2z OOMKilled: memory limit exceeded (512Mi)
+2026-04-29T01:16:00Z WARN  [K8sController] Pod orders-service-7d8f9c-xkp2z CrashLoopBackOff (restarts: 5)
+2026-04-29T01:17:00Z ERROR [K8sController] Deployment orders-service: 0/3 pods available - DEGRADED
+2026-04-29T01:20:00Z INFO  [K8sController] HPA triggered: orders-service scaled from 3 to 6 replicas
+2026-04-29T01:45:00Z INFO  [K8sController] Deployment orders-service: 6/6 pods available - HEALTHY
+2026-04-29T04:22:00Z ERROR [K8sController] Pod payment-service-5f6b7c-mn3k9 Terminating: liveness probe failed (3 consecutive failures)
+2026-04-29T04:22:30Z WARN  [K8sController] Deployment payment-service: 1/2 pods available - DEGRADED
+2026-04-29T04:25:00Z INFO  [K8sController] Pod payment-service-5f6b7c-mn3k9 restarted successfully
+2026-04-29T04:30:00Z INFO  [K8sController] Deployment payment-service: 2/2 pods available - HEALTHY
+2026-04-29T06:00:00Z INFO  [K8sController] Routine pod health check: all 142 pods healthy
+2026-04-29T08:28:00Z ERROR [K8sController] Pod reporting-service-2a3b4c-qr7st OOMKilled: memory limit exceeded (2Gi)
+2026-04-29T08:30:00Z ERROR [K8sController] Pod reporting-service-2a3b4c-qr7st CrashLoopBackOff (restarts: 2)
+2026-04-29T08:32:00Z INFO  [K8sController] Pod reporting-service-2a3b4c-new8z started with increased limit (4Gi)
+2026-04-29T09:15:00Z WARN  [K8sController] Pod orders-service-7d8f9c-ab3cd CrashLoopBackOff (restarts: 2)
+2026-04-29T09:16:00Z ERROR [K8sController] Deployment orders-service: 2/6 pods available - DEGRADED
+2026-04-29T09:45:00Z INFO  [K8sController] Deployment orders-service: 6/6 pods available - HEALTHY
+2026-04-29T10:45:00Z ERROR [K8sController] Pod orders-service-7d8f9c-xy9wz CrashLoopBackOff (restarts: 4)
+2026-04-29T10:46:00Z ERROR [K8sController] Pod orders-service-7d8f9c-km2pq CrashLoopBackOff (restarts: 3)
+2026-04-29T10:47:00Z ERROR [K8sController] Deployment orders-service: 1/6 pods available - CRITICAL
+2026-04-29T10:47:10Z INFO  [K8sController] HPA triggered: orders-service scaling to 10 replicas

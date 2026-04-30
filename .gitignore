@@ -1,0 +1,46 @@
+# ── Secrets — never commit ─────────────────────────────────────────────────────
+.env
+
+# ── Python cache ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+.Python
+
+# ── Generated runtime output ───────────────────────────────────────────────────
+data/monitoring_output.json
+alerts/*.json
+# Keep the data/ and alerts/ directories but ignore their generated contents
+!data/.gitkeep
+!alerts/.gitkeep
+
+# ── Gradio / HuggingFace cache ─────────────────────────────────────────────────
+gradio_cached_examples/
+flagged/
+__pycache__/
+
+# ── Claude Code internal memory ───────────────────────────────────────────────
+.claude/
+
+# ── Editors & OS ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/settings.json
+
+# ── Distribution / packaging ───────────────────────────────────────────────────
+*.egg-info/
+dist/
+build/
+.pytest_cache/
